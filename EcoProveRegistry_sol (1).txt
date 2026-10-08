@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.20;
+
+/// @title EcoProveRegistry - çevresel veri kayıtlarının provenance kaydı
+/// Zincire ham veri yazılmaz; sadece hash, kaynak, skor ve durum yazılır.
+contract EcoProveRegistry {
+    enum Status { Trusted, Review, Quarantined }
+
+    struct Reading {
+        bytes32 dataHash;   // keccak256(ham kayıt)
+        string  source;     // "NASA_POWER", "NOAA_GHCN", ...
+        uint64  dataTime;   // verinin ölçüm zamanı (unix)
+        uint64  recordedAt; // zincire yazılma zamanı
+        uint8   score;      // 0-100
+        Status  status;
+        address recorder;
+    }
+
+    mapping(bytes32 => Reading) private readings;
+    address public owner;
+    mapping(address => bool) public writers;
+
+    event ReadingRecorded(bytes32 indexed dataHash, string source, uint8 score, Status status);
+
+    constructor() { owner = msg.sender; writers[msg.sender] = true; }
+
+    function setWriter(address w, bool ok) external {
+        require(msg.sender == owner, "only owner");
+        writers[w] = ok;
+    }
+
+    function recordReading(
+        bytes32 dataHash, string calldata source,
+        uint64 dataTime, uint8 score, Status status
+    ) external {
+        require(writers[msg.sender], "not authorized");
+        require(score <= 100, "score>100");
+        require(readings[dataHash].recordedAt == 0, "already recorded"); // değiştirilemez
+        readings[dataHash] = Reading(dataHash, source, dataTime,
+            uint64(block.timestamp), score, status, msg.sender);
+        emit ReadingRecorded(dataHash, source, score, status);
+    }
+
+    /// Hash zincirde var mı? Varsa kaydı döner.
+    function verify(bytes32 dataHash) external view
+        returns (bool exists, Reading memory r)
+    {
+        r = readings[dataHash];
+        exists = r.recordedAt != 0;
+    }
+}
