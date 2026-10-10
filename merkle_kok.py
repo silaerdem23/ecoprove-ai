@@ -2,6 +2,7 @@
 reliability_scores.csv -> merkle_roots.csv  (ay, root, count)
 Gereken: pip install pandas pycryptodome"""
 import random
+import sys
 import pandas as pd
 from Crypto.Hash import keccak
 
@@ -48,7 +49,10 @@ def dogrula(y, p, root):
     return h == root
 
 
-d = pd.read_csv("reliability_scores.csv", keep_default_na=False)
+# kullanım: python merkle_kok.py [girdi.csv] [cikti.csv]
+GIRDI = sys.argv[1] if len(sys.argv) > 1 else "reliability_scores.csv"
+CIKTI = sys.argv[2] if len(sys.argv) > 2 else "merkle_roots.csv"
+d = pd.read_csv(GIRDI, keep_default_na=False)
 d = d.sort_values(["date", "source"]).reset_index(drop=True)
 d["ay"] = d.date.str[:7]
 
@@ -62,7 +66,7 @@ for ay, g in d.groupby("ay"):
 for yap, i, root in random.Random(42).sample(ornek, 200):
     ok += dogrula(yap[i], kanit(yap, i), root)
 
-pd.DataFrame(sonuc, columns=["ay", "root", "count"]).to_csv("merkle_roots.csv", index=False)
+pd.DataFrame(sonuc, columns=["ay", "root", "count"]).to_csv(CIKTI, index=False)
 print(f"Kendi testi: {ok}/200 kanit dogru")
 print("Ilk 3 kok:")
 print(pd.DataFrame(sonuc[:3], columns=["ay", "root", "count"]).to_string(index=False))
